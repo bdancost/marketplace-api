@@ -24,7 +24,7 @@ async function bootstrap() {
   );
 
   const config = new DocumentBuilder()
-    .setTitle('Marketplace Gateway')
+    .setTitle('Marketplace API Gateway')
     .setDescription('API Gateway for Marketplace Microservices')
     .setVersion('1.0')
     .addBearerAuth()
@@ -39,4 +39,5 @@ async function bootstrap() {
   console.log(`🚀 API Gateway running on port ${port}`);
   console.log(`📚 Swagger documentation: <http://localhost>:${port}/api`);
 }
+
 bootstrap();
