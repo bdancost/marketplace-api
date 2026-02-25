@@ -40,4 +40,7 @@ async function bootstrap() {
   console.log(`📚 Swagger documentation: <http://localhost>:${port}/api`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
