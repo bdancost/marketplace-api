@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   ExecutionContext,
   Injectable,
@@ -27,7 +25,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest<TUser = any>(err: any, user: any, _info: any): TUser {
+  handleRequest<TUser = unknown>(err: any, user: TUser): TUser {
     if (err || !user) {
       throw err || new UnauthorizedException();
     }
