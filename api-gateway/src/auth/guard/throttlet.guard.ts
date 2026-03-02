@@ -1,9 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { ExecutionContext, Injectable } from '@nestjs/common';
-import { ThrottlerException, ThrottlerGuard } from '@nestjs/throttler';
+import { Injectable } from '@nestjs/common';
+import {
+  ThrottlerException,
+  ThrottlerGuard,
+  ThrottlerRequest,
+} from '@nestjs/throttler';
 
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
@@ -13,10 +17,9 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
   }
 
   protected async handlerRequest(
-    context: ExecutionContext,
-    limit: number,
-    ttl: number,
+    requestProps: ThrottlerRequest,
   ): Promise<boolean> {
+    const { context, ttl, limit } = requestProps;
     const { req, res } = this.getRequestResponse(context);
     const throttler = this.reflector.get('throttle', context.getHandler());
     const throttleName = throttler ? Object.keys(throttler)[0] : 'default';
