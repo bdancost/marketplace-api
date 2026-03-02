@@ -7,29 +7,33 @@ import { ProxyModule } from './proxy/proxy.module';
 import { MiddlewareModule } from './middleware/middleware.module';
 import { LoggingMiddleware } from './middleware/logging/logging.middleware';
 import { AuthModule } from './auth/auth.module';
+import { ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot([
-      {
-        name: 'short',
-        ttl: 1000, // 1 second
-        limit: 10,
-      },
-      {
-        name: 'medium',
-        ttl: 60000, // 1 minute
-        limit: 100,
-      },
-      {
-        name: 'long',
-        ttl: 900000, // 15 minutes
-        limit: 1000,
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => [
+        {
+          name: 'short',
+          ttl: 1000, // 1 second
+          limit: configService.get<number>('RATE_LIMIT_SHORT', 10),
+        },
+        {
+          name: 'medium',
+          ttl: 60000, // 1 minute
+          limit: configService.get<number>('RATE_LIMIT_MEDIUM', 100),
+        },
+        {
+          name: 'long',
+          ttl: 900000, // 15 minutes
+          limit: configService.get<number>('RATE_LIMIT_LONG', 1000),
+        },
+      ],
+    }),
     ProxyModule,
     MiddlewareModule,
     AuthModule,
