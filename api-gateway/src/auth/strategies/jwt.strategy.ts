@@ -1,36 +1,39 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { AuthService } from '../service/auth.service';
+import type { AuthService } from '../service/auth.service';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
-@Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(private readonly authService: AuthService) {
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET is not defined');
-    }
+interface JwtPayload {
+  sub: string;
+  email: string;
+  role: string;
+  token: string;
+  iat?: number;
+  exp?: number;
+}
 
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  constructor(private readonly authService: AuthService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET,
+      secretOrKey: process.env.JWT_SECRET as string,
     });
   }
 
-  async validate(payload: any) {
-    if (!payload || !payload.sub) {
-      throw new UnauthorizedException();
+  async validate(payload: JwtPayload) {
+    if (!payload) {
+      throw new UnauthorizedException('Invalid token payload');
     }
 
-    const user = await this.authService.validateJwtToken(payload);
+    const user = await this.authService.validateJwtToken(payload.token);
+
     if (!user) {
       throw new UnauthorizedException();
     }
-    return { userID: payload.sub, email: payload.email, role: payload.role };
+
+    return { userId: payload.sub, email: payload.email, role: payload.role };
   }
 }
