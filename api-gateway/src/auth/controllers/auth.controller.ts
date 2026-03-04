@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../service/auth.service';
@@ -13,8 +12,23 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'User login' })
-  @ApiResponse({ status: 200, description: 'Successful login' })
+  @ApiOperation({
+    summary: 'Login do usuário',
+    description: 'Autentica o usuário e retorna um token JWT',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Login realizado com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        user: { type: 'object' },
+        accessToken: { type: 'string' },
+        sessionToken: { type: 'string' },
+        expiresIn: { type: 'number' },
+      },
+    },
+  })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   async login(@Body() loginDto: LoginDto) {
@@ -23,9 +37,13 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'User registration' })
+  @ApiOperation({
+    summary: 'Registro do usuário',
+    description: 'Cria um nova conta de usuário no sistema.',
+  })
   @ApiResponse({ status: 201, description: 'Successful registration' })
   @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 409, description: 'Email já cadastrado.' })
   @Throttle({ medium: { limit: 3, ttl: 60000 } })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
