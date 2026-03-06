@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   CanActivate,
   ExecutionContext,
@@ -23,9 +22,11 @@ export class RoleGuard implements CanActivate {
       return true;
     }
 
-    const user = context.switchToHttp().getRequest().user;
+    const req = context.switchToHttp().getRequest();
+    type UserWithRole = { role?: string } | undefined;
+    const user = req.user as UserWithRole;
 
-    if (!user || !user.role) {
+    if (!user || typeof user.role !== 'string') {
       throw new ForbiddenException('User role not found');
     }
 
