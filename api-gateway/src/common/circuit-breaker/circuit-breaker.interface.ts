@@ -1,17 +1,17 @@
-enum CircuitBreakerStatusEnum {
+export enum CircuitBreakerStateEnum {
   CLOSED = 'CLOSED',
   OPEN = 'OPEN',
   HALF_OPEN = 'HALF_OPEN',
 }
 
 export interface CircuitBreakerOptions {
-  failureThreshold?: number;
-  timeout?: number;
-  resetTimeout?: number;
+  failureThreshold?: number | null | undefined;
+  timeout?: number | null | undefined;
+  resetTimeout?: number | null | undefined;
 }
 
 export interface CircuitBreakerState {
-  status: CircuitBreakerStatusEnum;
+  state: CircuitBreakerStateEnum;
   failureCount: number;
   lastFailureTime: number;
   nextAttemptTime: number;
