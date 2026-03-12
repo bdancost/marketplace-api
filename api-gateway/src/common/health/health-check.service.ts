@@ -3,13 +3,16 @@
 /* eslint-disable @typescript-eslint/require-await */
 import { Injectable, Logger } from '@nestjs/common';
 import { HealthStatus, type ServiceHealth } from './health-check.interface';
-import type { HttpService } from '@nestjs/axios';
-import type { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
+import { HttpService } from '@nestjs/axios';
+import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 import { serviceConfig } from 'src/config/gateway.config';
 import { firstValueFrom, timeout } from 'rxjs';
 
 @Injectable()
 export class HealthCheckService {
+  checkServices() {
+    throw new Error('Method not implemented.');
+  }
   private readonly logger = new Logger(HealthCheckService.name);
   private readonly healthCache = new Map<string, ServiceHealth>();
 

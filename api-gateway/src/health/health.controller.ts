@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Controller, Get, Param } from '@nestjs/common';
 import type { HealthService } from './health.service';
 import type { HealthCheckService } from 'src/common/health/health-check.service';
@@ -16,7 +13,7 @@ export class HealthController {
   @Get()
   @ApiOperation({ summary: 'Health check do gateway' })
   @ApiResponse({ status: 200, description: 'Gateway está saudável' })
-  getHealth() {
+  async getHealth() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -54,7 +51,7 @@ export class HealthController {
   @Get('services/:serviceName')
   @ApiOperation({ summary: 'Health check de um serviço específico' })
   @ApiResponse({ status: 200, description: 'Status do serviço' })
-  getServiceHealth(@Param('serviceName') serviceName: string) {
+  async getServiceHealth(@Param('serviceName') serviceName: string) {
     const cached = this.healthCheckService.getCachedHealth(serviceName);
 
     if (!cached) {
@@ -74,7 +71,7 @@ export class HealthController {
     status: 200,
     description: 'Readiness status retrieved successfully',
   })
-  getReady() {
+  async getReady() {
     return this.healthService.getReadyStatus();
   }
 
@@ -84,7 +81,7 @@ export class HealthController {
     status: 200,
     description: 'Liveness status retrieved successfully',
   })
-  getLive() {
+  async getLive() {
     return this.healthService.getLiveStatus();
   }
 }
