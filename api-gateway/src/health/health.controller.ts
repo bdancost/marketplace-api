@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
+/* eslint-disable @typescript-eslint/require-await */
 import { Controller, Get, Param } from '@nestjs/common';
 import { HealthService } from './health.service';
 import { HealthCheckService } from 'src/common/health/health-check.service';

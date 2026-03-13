@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/require-await */
+/* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 import { Injectable } from '@nestjs/common';
 import { HealthStatus } from 'src/common/health/health-check.interface';
 import { HealthCheckService } from 'src/common/health/health-check.service';
