@@ -8,7 +8,10 @@ import { User } from './entities/user.entity';
 
 describe('UsersController', () => {
   let usersController: UsersController;
-  let usersService: jest.Mocked<Partial<UsersService>>;
+  let usersService: {
+    findById: jest.Mock<Promise<User | null>, [string]>;
+    findActiveSellers: jest.Mock<Promise<User[]>, []>;
+  };
 
   const mockUser: User = {
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
@@ -48,8 +51,8 @@ describe('UsersController', () => {
 
   beforeEach(async () => {
     usersService = {
-      findById: jest.fn(),
-      findActiveSellers: jest.fn(),
+      findById: jest.fn<Promise<User | null>, [string]>(),
+      findActiveSellers: jest.fn<Promise<User[]>, []>(),
     };
 
     const module: TestingModule = await Test.createTestingModule({

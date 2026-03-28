@@ -1,14 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { UsersService } from './users.service.spec';
+import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { UserRole } from './enums/user-role.enum';
 import { UserStatus } from './enums/user-status.enum';
 
 describe('UsersService', () => {
   let usersService: UsersService;
-  let usersRepository: jest.Mocked<Partial<Repository<User>>>;
+  let usersRepository: {
+    findOne: jest.Mock<Promise<User | null>, [any]>;
+    find: jest.Mock<Promise<User[]>, [any]>;
+    create: jest.Mock<User, [any]>;
+    save: jest.Mock<Promise<User>, [any]>;
+  };
 
   const mockUser: User = {
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
@@ -36,11 +40,10 @@ describe('UsersService', () => {
 
   beforeEach(async () => {
     usersRepository = {
-      findOne: jest.fn(),
-      find: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-      createQueryBuilder: jest.fn(),
+      findOne: jest.fn<Promise<User | null>, [any]>(),
+      find: jest.fn<Promise<User[]>, [any]>(),
+      create: jest.fn<User, [any]>(),
+      save: jest.fn<Promise<User>, [any]>(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
