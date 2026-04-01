@@ -1,8 +1,5 @@
-import {
-  Module,
-  type MiddlewareConsumer,
-  type NestModule,
-} from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -10,15 +7,20 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ProxyModule } from './proxy/proxy.module';
 import { MiddlewareModule } from './middleware/middleware.module';
 import { LoggingMiddleware } from './middleware/logging/logging.middleware';
+import { HttpMetricsMiddleware } from './metrics/http-metrics.middleware';
 import { AuthModule } from './auth/auth.module';
 import { APP_GUARD } from '@nestjs/core';
-import { CustomThrottlerGuard } from './auth/guards/throttler.guard';
+import { CustomThrottlerGuard } from './guards/throttler.guard';
 import { HealthModule } from './health/health.module';
-import { HealthCheckModule } from './common/health/health-check.module';
 import { FallbackModule } from './common/fallback/fallback.module';
 import { CircuitBreakerModule } from './common/circuit-breaker/circuit-breaker.module';
 import { TimeoutModule } from './common/timeout/timeout.module';
 import { RetryModule } from './common/retry/retry.module';
+import { ProductsModule } from './products/products.module';
+import { UsersModule } from './users/users.module';
+import { CheckoutModule } from './checkout/checkout.module';
+import { PaymentsModule } from './payments/payments.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -31,39 +33,47 @@ import { RetryModule } from './common/retry/retry.module';
         {
           name: 'short',
           ttl: 1000, // 1 second
-          limit: configService.get<number>('RATE_LIMIT_SHORT', 10), // 10 requests per minute
+          limit: configService.get<number>('RATE_LIMIT_SHORT', 10),
         },
         {
           name: 'medium',
           ttl: 60000, // 1 minute
-          limit: configService.get<number>('RATE_LIMIT_MEDIUM', 100), // 100 requests per minute
+          limit: configService.get<number>('RATE_LIMIT_MEDIUM', 100),
         },
         {
           name: 'long',
-          ttl: 900000, // 15 minute
-          limit: configService.get<number>('RATE_LIMIT_LONG', 1000), // 1000 requests per minute
+          ttl: 900000, // 15 minutes
+          limit: configService.get<number>('RATE_LIMIT_LONG', 1000),
         },
       ],
       inject: [ConfigService],
     }),
+    MetricsModule,
     ProxyModule,
     MiddlewareModule,
     AuthModule,
     HealthModule,
-    HealthCheckModule,
     FallbackModule,
     CircuitBreakerModule,
     TimeoutModule,
     RetryModule,
+    ProductsModule,
+    UsersModule,
+    CheckoutModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    { provide: APP_GUARD, useClass: CustomThrottlerGuard },
+    {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer.apply(HttpMetricsMiddleware).forRoutes('*');
     consumer.apply(LoggingMiddleware).forRoutes('*');
   }
 }

@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger } from '@nestjs/common';
-import { serviceConfig } from 'src/config/gateway.config';
+import { HttpException, Injectable, Logger } from '@nestjs/common';
+import { serviceConfig } from '../../config/gateway.config';
 import { firstValueFrom } from 'rxjs';
 import { CircuitBreakerService } from 'src/common/circuit-breaker/circuit-breaker.service';
 import { CacheFallbackService } from 'src/common/fallback/cache.fallback';
 import { DefaultFallbackService } from 'src/common/fallback/default.fallback';
-import { RetryService } from 'src/common/retry/retry.service';
 import { TimeoutService } from 'src/common/timeout/timeout.service';
+import { RetryService } from 'src/common/retry/retry.service';
 
 interface UserInfo {
   userId: string;
@@ -45,10 +46,13 @@ export class ProxyService {
 
     const fallback = this.createServiceFallback(serviceName, method, path);
 
+    // Camada 1: Circuit Breaker
     return this.circuitBreakerService.executeWithCircuitBreaker(
       async () => {
+        // Camada 2: RETRY
         return await this.retryService.executeWithExponentialBackoff(
           async () => {
+            // Camada 3: TIMEOUT
             return await this.timeoutService.executeWithCustomTimeout(
               async () => {
                 const enhancedHeaders = {
@@ -65,8 +69,19 @@ export class ProxyService {
                     data,
                     headers: enhancedHeaders,
                     timeout: service.timeout,
+                    validateStatus: () => true,
                   }),
                 );
+
+                if (response.status >= 400 && response.status < 500) {
+                  throw new HttpException(response.data, response.status);
+                }
+
+                if (response.status >= 500) {
+                  throw new Error(
+                    `Upstream ${serviceName} returned ${response.status}`,
+                  );
+                }
 
                 if (method.toLowerCase() === 'get') {
                   this.cacheFallbackService.setCachedData(
@@ -74,13 +89,12 @@ export class ProxyService {
                     response.data,
                   );
                 }
-
                 return response.data;
               },
               service.timeout,
             );
           },
-          4,
+          3,
         );
       },
       `proxy-${serviceName}`,
@@ -102,7 +116,6 @@ export class ProxyService {
             'Authentication service unavailable',
           );
         }
-
         return this.defaultFallbackService.createErrorFallback(
           'users',
           'User service unavailable',
@@ -114,7 +127,6 @@ export class ProxyService {
             { products: [], total: 0, page: 1, limit: 10 },
           );
         }
-
         return this.defaultFallbackService.createErrorFallback(
           'products',
           'Product service unavailable',
