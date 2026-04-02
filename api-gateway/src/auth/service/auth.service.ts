@@ -1,12 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { HttpService } from '@nestjs/axios';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { firstValueFrom } from 'rxjs';
 import { serviceConfig } from 'src/config/gateway.config';
-import { RegisterDto } from '../dtos/register.dto';
-import { LoginDto } from '../dtos/login.dto';
 
 export interface UserSession {
   valid: boolean;
@@ -45,46 +41,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid JWT token');
     }
   }
+
   async validateSessionToken(sessionToken: string): Promise<UserSession> {
     try {
       const { data } = await firstValueFrom(
         this.httpService.get<UserSession>(
-          `
-          ${serviceConfig.users.url}/session/validate/${sessionToken}`,
+          `${serviceConfig.users.url}/sessions/validate/${sessionToken}`,
           { timeout: serviceConfig.users.timeout },
         ),
       );
       return data;
     } catch {
       throw new UnauthorizedException('Invalid session token');
-    }
-  }
-  async login(loginDto: LoginDto): Promise<AuthResponse> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.post(`${serviceConfig.users.url}/login`, loginDto, {
-          timeout: serviceConfig.users.timeout,
-        }),
-      );
-      return data;
-    } catch {
-      throw new UnauthorizedException('Invalid login credentials');
-    }
-  }
-  async register(registerDto: RegisterDto): Promise<AuthResponse> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.post(
-          `${serviceConfig.users.url}/auth/register`,
-          registerDto,
-          {
-            timeout: serviceConfig.users.timeout,
-          },
-        ),
-      );
-      return data;
-    } catch {
-      throw new UnauthorizedException('Registration failed');
     }
   }
 }
