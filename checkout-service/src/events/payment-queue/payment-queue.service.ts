@@ -1,14 +1,21 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger } from '@nestjs/common';
-import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import { PaymentOrderMessage } from '../payment-queue.interface';
+import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
+import { MetricsService } from '../../metrics/metrics.service';
 
 @Injectable()
 export class PaymentQueueService {
   private readonly logger = new Logger(PaymentQueueService.name);
+
   private readonly ROUTING_KEY = 'payment.order';
   private readonly EXCHANGE = 'payments';
 
-  constructor(private readonly rabbitMQService: RabbitmqService) {}
+  constructor(
+    private readonly rabbitMQService: RabbitmqService,
+    private readonly metricsService: MetricsService,
+  ) {}
 
   async publishPaymentOrder(paymentOrder: PaymentOrderMessage): Promise<void> {
     this.logger.log(
@@ -26,15 +33,19 @@ export class PaymentQueueService {
       };
 
       await this.rabbitMQService.publishMessage(
-        this.EXCHANGE, // Para onde enviar
-        this.ROUTING_KEY, // Como rotear
-        enrichmentMessage, // O que enviar
+        this.EXCHANGE,
+        this.ROUTING_KEY,
+        enrichmentMessage,
       );
+
+      this.metricsService.rabbitmqMessagesPublishedTotal.inc({
+        queue: 'payment_order',
+      });
 
       this.logger.log(
         `✅ Payment order published successfully: ` +
-          `orderId=${paymentOrder.orderId}` +
-          `amount=${paymentOrder.amount}` +
+          `orderId=${paymentOrder.orderId}, ` +
+          `amount=${paymentOrder.amount}, ` +
           `userId=${paymentOrder.userId}`,
       );
 
@@ -46,7 +57,6 @@ export class PaymentQueueService {
         `❌ Failed to publish payment order: orderId=${paymentOrder.orderId}`,
         error,
       );
-
       throw error;
     }
   }
@@ -54,25 +64,21 @@ export class PaymentQueueService {
   private validatePaymentOrder(paymentOrder: PaymentOrderMessage): boolean {
     if (!paymentOrder.orderId) {
       this.logger.error('❌ Invalid payment order: missing orderId');
-
       return false;
     }
 
     if (!paymentOrder.userId) {
       this.logger.error('❌ Invalid payment order: missing userId');
-
       return false;
     }
 
     if (!paymentOrder.amount || paymentOrder.amount <= 0) {
       this.logger.error('❌ Invalid payment order: invalid amount');
-
       return false;
     }
 
     if (!paymentOrder.items || paymentOrder.items.length === 0) {
       this.logger.error('❌ Invalid payment order: no items');
-
       return false;
     }
 

@@ -3,15 +3,14 @@ export interface PaymentOrderMessage {
   userId: string;
   amount: number;
   items: Array<{
-    productId: string;
-    quantity: number;
-    price: number;
+    productId: string; // ID do produto
+    quantity: number; // Quantidade comprada
+    price: number; // Preço unitário no momento da compra
   }>;
-  metadata: {
+  paymentMethod: string;
+  createdAt?: Date;
+  metadata?: {
     service: string;
     timestamp: string;
   };
-  paymentMethod: string;
-  description?: string;
-  createdAt?: Date;
 }
