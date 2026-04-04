@@ -1,242 +1,100 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { OrdersService } from './orders.service';
 import { Order } from './entities/order.entity';
 import { OrderStatus } from './enums/order-status.enum';
 import { CartService } from '../cart/cart.service';
 import { PaymentQueueService } from '../events/payment-queue/payment-queue.service';
+import { CheckoutDto } from '../cart/dto/checkout.dto';
+import { PaymentOrderMessage } from '../events/payment-queue.interface';
 import { MetricsService } from '../metrics/metrics.service';
-import { Cart } from '../cart/entities/cart.entity';
-import { CartItem } from '../cart/entities/cart-item.entity';
 
-describe('OrdersService', () => {
-  let service: OrdersService;
-  let orderRepository: jest.Mocked<Repository<Order>>;
-  let cartService: jest.Mocked<CartService>;
-  let paymentQueueService: jest.Mocked<PaymentQueueService>;
-  let metricsService: jest.Mocked<MetricsService>;
+@Injectable()
+export class OrdersService {
+  constructor(
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
+    private readonly cartService: CartService,
+    private readonly paymentQueueService: PaymentQueueService,
+    private readonly metricsService: MetricsService,
+  ) {}
 
-  const mockOrderRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
-    find: jest.fn(),
-    findOne: jest.fn(),
-  };
+  async checkout(userId: string, dto: CheckoutDto): Promise<Order> {
+    const cart = await this.cartService.getActiveCartWithItems(userId);
 
-  const mockCartService = {
-    getActiveCartWithItems: jest.fn(),
-    completeCart: jest.fn(),
-  };
+    if (!cart || !cart.items || cart.items.length === 0) {
+      throw new BadRequestException('Carrinho vazio ou não encontrado');
+    }
 
-  const mockPaymentQueueService = {
-    publishPaymentOrder: jest.fn(),
-  };
-
-  const mockMetricsService = {
-    ordersCreatedTotal: { inc: jest.fn() },
-  };
-
-  const userId = 'user-uuid';
-  const cartId = 'cart-uuid';
-  const orderId = 'order-uuid';
-
-  const createMockCartItem = (): CartItem =>
-    ({
-      id: 'item-uuid',
-      cartId,
-      productId: 'product-uuid',
-      productName: 'Test Product',
-      price: 99.99,
-      quantity: 1,
-      subtotal: 99.99,
-      createdAt: new Date(),
-    }) as CartItem;
-
-  const createMockCart = (overrides?: Partial<Cart>): Cart =>
-    ({
-      id: cartId,
+    const order = this.orderRepository.create({
       userId,
-      status: 'active',
-      total: 99.99,
-      items: [createMockCartItem()],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      ...overrides,
-    }) as Cart;
-
-  const createMockOrder = (overrides?: Partial<Order>): Order =>
-    ({
-      id: orderId,
-      userId,
-      cartId,
-      amount: 99.99,
+      cartId: cart.id,
+      amount: cart.total,
+      paymentMethod: dto.paymentMethod,
       status: OrderStatus.PENDING,
-      paymentMethod: 'credit_card',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      ...overrides,
-    }) as Order;
-
-  beforeEach(async () => {
-    jest.clearAllMocks();
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        OrdersService,
-        { provide: getRepositoryToken(Order), useValue: mockOrderRepository },
-        { provide: CartService, useValue: mockCartService },
-        { provide: PaymentQueueService, useValue: mockPaymentQueueService },
-        { provide: MetricsService, useValue: mockMetricsService },
-      ],
-    }).compile();
-
-    service = module.get<OrdersService>(OrdersService);
-    orderRepository = module.get(getRepositoryToken(Order));
-    cartService = module.get(CartService);
-    paymentQueueService = module.get(PaymentQueueService);
-    metricsService = module.get(MetricsService);
-  });
-
-  describe('checkout', () => {
-    it('creates order and publishes payment', async () => {
-      const cart = createMockCart();
-      mockCartService.getActiveCartWithItems.mockResolvedValue(cart);
-
-      const order = createMockOrder();
-      mockOrderRepository.create.mockReturnValue(order);
-      mockOrderRepository.save.mockResolvedValue(order);
-      mockCartService.completeCart.mockResolvedValue(undefined);
-      mockPaymentQueueService.publishPaymentOrder.mockResolvedValue(undefined);
-
-      const dto = { paymentMethod: 'credit_card' };
-      const result = await service.checkout(userId, dto);
-
-      expect(mockCartService.getActiveCartWithItems).toHaveBeenCalledWith(
-        userId,
-      );
-      expect(mockOrderRepository.create).toHaveBeenCalledWith({
-        userId,
-        cartId: cart.id,
-        amount: cart.total,
-        paymentMethod: dto.paymentMethod,
-        status: OrderStatus.PENDING,
-      });
-      expect(mockOrderRepository.save).toHaveBeenCalled();
-      expect(mockMetricsService.ordersCreatedTotal.inc).toHaveBeenCalled();
-      expect(mockCartService.completeCart).toHaveBeenCalledWith(cart.id);
-      expect(mockPaymentQueueService.publishPaymentOrder).toHaveBeenCalledWith(
-        expect.objectContaining({
-          orderId: order.id,
-          userId,
-          amount: 99.99,
-          paymentMethod: dto.paymentMethod,
-          items: expect.any(Array),
-        }),
-      );
-      expect(result).toEqual(order);
     });
 
-    it('throws BadRequestException for empty cart', async () => {
-      mockCartService.getActiveCartWithItems.mockResolvedValue(null);
+    const savedOrder = await this.orderRepository.save(order);
 
-      const dto = { paymentMethod: 'credit_card' };
+    this.metricsService.ordersCreatedTotal.inc();
 
-      await expect(service.checkout(userId, dto)).rejects.toThrow(
-        BadRequestException,
-      );
-      await expect(service.checkout(userId, dto)).rejects.toThrow(
-        'Carrinho vazio ou não encontrado',
-      );
-      expect(mockOrderRepository.create).not.toHaveBeenCalled();
+    await this.cartService.completeCart(cart.id);
+
+    const paymentMessage: PaymentOrderMessage = {
+      orderId: savedOrder.id,
+      userId,
+      amount: Number(savedOrder.amount),
+      items: cart.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: Number(item.price),
+      })),
+      paymentMethod: dto.paymentMethod,
+    };
+
+    await this.paymentQueueService.publishPaymentOrder(paymentMessage);
+
+    return savedOrder;
+  }
+
+  async findAll(userId: string): Promise<Order[]> {
+    return this.orderRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findOne(userId: string, orderId: string): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId, userId },
     });
 
-    it('throws BadRequestException when cart has no items', async () => {
-      const emptyCart = createMockCart({ items: [], total: 0 });
-      mockCartService.getActiveCartWithItems.mockResolvedValue(emptyCart);
+    if (!order) {
+      throw new NotFoundException('Pedido não encontrado');
+    }
 
-      const dto = { paymentMethod: 'credit_card' };
+    return order;
+  }
 
-      await expect(service.checkout(userId, dto)).rejects.toThrow(
-        BadRequestException,
-      );
-      expect(mockOrderRepository.create).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('findAll', () => {
-    it('returns user orders', async () => {
-      const orders = [createMockOrder(), createMockOrder({ id: 'order-2' })];
-      mockOrderRepository.find.mockResolvedValue(orders);
-
-      const result = await service.findAll(userId);
-
-      expect(mockOrderRepository.find).toHaveBeenCalledWith({
-        where: { userId },
-        order: { createdAt: 'DESC' },
-      });
-      expect(result).toEqual(orders);
-    });
-  });
-
-  describe('findOne', () => {
-    it('returns order', async () => {
-      const order = createMockOrder();
-      mockOrderRepository.findOne.mockResolvedValue(order);
-
-      const result = await service.findOne(userId, orderId);
-
-      expect(mockOrderRepository.findOne).toHaveBeenCalledWith({
-        where: { id: orderId, userId },
-      });
-      expect(result).toEqual(order);
+  async updateOrderStatus(
+    orderId: string,
+    status: OrderStatus,
+  ): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
     });
 
-    it('throws NotFoundException when order not found', async () => {
-      mockOrderRepository.findOne.mockResolvedValue(null);
+    if (!order) {
+      throw new NotFoundException('Pedido não encontrado');
+    }
 
-      await expect(service.findOne(userId, orderId)).rejects.toThrow(
-        NotFoundException,
-      );
-      await expect(service.findOne(userId, orderId)).rejects.toThrow(
-        'Pedido não encontrado',
-      );
-    });
-  });
-
-  describe('updateOrderStatus', () => {
-    it('updates status', async () => {
-      const order = createMockOrder();
-      const updatedOrder = { ...order, status: OrderStatus.PAID };
-      mockOrderRepository.findOne.mockResolvedValue(order);
-      mockOrderRepository.save.mockResolvedValue(updatedOrder);
-
-      const result = await service.updateOrderStatus(orderId, OrderStatus.PAID);
-
-      expect(mockOrderRepository.findOne).toHaveBeenCalledWith({
-        where: { id: orderId },
-      });
-      expect(order.status).toBe(OrderStatus.PAID);
-      expect(mockOrderRepository.save).toHaveBeenCalledWith(order);
-      expect(result).toEqual(updatedOrder);
-    });
-
-    it('throws NotFoundException when order not found', async () => {
-      mockOrderRepository.findOne.mockResolvedValue(null);
-
-      await expect(
-        service.updateOrderStatus(orderId, OrderStatus.PAID),
-      ).rejects.toThrow(NotFoundException);
-      await expect(
-        service.updateOrderStatus(orderId, OrderStatus.PAID),
-      ).rejects.toThrow('Pedido não encontrado');
-      expect(mockOrderRepository.save).not.toHaveBeenCalled();
-    });
-  });
-});
-export { OrdersService };
+    order.status = status;
+    return this.orderRepository.save(order);
+  }
+}

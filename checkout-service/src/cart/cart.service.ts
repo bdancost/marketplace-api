@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 import { Cart } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
 import { CartStatus } from './enums/cart-status.enum';
-import { ProductsClientService } from '../products-client/products-client.service.js';
+import { ProductsClientService } from '../products-client/products-client.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 
 @Injectable()
