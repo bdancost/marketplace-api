@@ -4,7 +4,7 @@ import { Cart } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
 import { CartController } from './cart.controller.js';
 import { CartService } from './cart.service.js';
-import { ProductsClientModule } from '../products-client/products-client.module.js';
+import { ProductsClientModule } from '../products-client/products-client.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Cart, CartItem]), ProductsClientModule],
