@@ -2,6 +2,8 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PaymentQueueService } from '../payment-queue/payment-queue.service';
 import { PaymentOrderMessage } from '../payment-queue.interface';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
+import { PaymentsService } from '../../payments/payments.service';
+import { PaymentResultPublisherService } from '../payment-result/payment-result-publisher.service';
 
 export interface ConsumerMetrics {
   totalProcessed: number; // Total de mensagens processadas
@@ -44,6 +46,8 @@ export class PaymentConsumerService implements OnModuleInit {
   constructor(
     private readonly paymentQueueService: PaymentQueueService,
     private readonly rabbitMQService: RabbitmqService,
+    private readonly paymentsService: PaymentsService,
+    private readonly paymentResultPublisher: PaymentResultPublisherService,
   ) {}
 
   async onModuleInit() {
@@ -78,37 +82,36 @@ export class PaymentConsumerService implements OnModuleInit {
     }
   }
 
-  private processPaymentOrder(message: PaymentOrderMessage): void {
+  private async processPaymentOrder(
+    message: PaymentOrderMessage,
+  ): Promise<void> {
     const startTime = Date.now();
     try {
-      // Log inicial com informações da mensagem
-      this.logger.log(
-        `📝 Processing payment order: ` +
-          `orderId=${message.orderId}, ` +
-          `userId=${message.userId}, ` +
-          `amount=${message.amount}`,
-      );
-
-      // Validar mensagem antes de processar
       if (!this.validateMessage(message)) {
         this.logger.error('❌ Invalid payment message received');
-        // Rejeitamos a mensagem para não ficar reprocessando
         throw new Error('Invalid payment message received');
       }
 
-      // TODO: Processar pagamento usando PaymentsService
-      // Isso será implementado na próxima aula
-      this.logger.log('✅ Payment order received and validated');
+      const payment = await this.paymentsService.processPayment(message);
+
+      try {
+        await this.paymentResultPublisher.publishPaymentResult(payment);
+      } catch (publishError) {
+        this.logger.error(
+          `⚠️ Failed to publish payment result for orderId=${message.orderId}, payment is saved and can be queried via REST`,
+          publishError,
+        );
+      }
+
+      this.logger.log('✅ Payment order processed successfully');
       this.updateMetrics(true, startTime);
     } catch (error) {
       this.updateMetrics(false, startTime);
-      // Log de erro com contexto completo
       this.logger.error(
         `❌ Failed to process payment for order ${message.orderId}:`,
         error,
       );
 
-      // IMPORTANTE: Relançamos o erro para o RabbitMQ fazer NACK
       throw error;
     }
   }
@@ -146,7 +149,7 @@ export class PaymentConsumerService implements OnModuleInit {
   }
 
   private updateMetrics(success: boolean, startTime: number): void {
-    // Calcula o tempo de processamento desta mensagem
+    // Calcula tempo de processamento desta mensagem
     const processingTime = Date.now() - startTime;
 
     // Incrementa contadores
@@ -166,7 +169,6 @@ export class PaymentConsumerService implements OnModuleInit {
     );
 
     // Log de métricas a cada 10 mensagens (ou 100 em produção)
-
     if (this.metrics.totalProcessed % 10 === 0) {
       this.logMetricsSummary();
     }
@@ -186,13 +188,13 @@ export class PaymentConsumerService implements OnModuleInit {
         : '0';
 
     this.logger.log('📊 ====== CONSUMER METRICS ======');
-    this.logger.log(`.   Total Processed: ${this.metrics.totalProcessed}`);
-    this.logger.log(`.   Success: ${this.metrics.totalSuccess}`);
-    this.logger.log(`.   Failed: ${this.metrics.totalFailed}`);
-    this.logger.log(`.   Retries: ${this.metrics.totalRetries}`);
-    this.logger.log(`.   Success Rate: ${successRate}%`);
+    this.logger.log(`   Total Processed: ${this.metrics.totalProcessed}`);
+    this.logger.log(`   Success: ${this.metrics.totalSuccess}`);
+    this.logger.log(`   Failed: ${this.metrics.totalFailed}`);
+    this.logger.log(`   Retries: ${this.metrics.totalRetries}`);
+    this.logger.log(`   Success Rate: ${successRate}%`);
     this.logger.log(
-      `.   Avg Processing Time: ${this.metrics.averageProcessingTime}ms`,
+      `   Avg Processing Time: ${this.metrics.averageProcessingTime}ms`,
     );
     this.logger.log('📊 ================================');
   }
@@ -213,7 +215,6 @@ export class PaymentConsumerService implements OnModuleInit {
       averageProcessingTime: 0,
     };
     this.totalProcessingTime = 0;
-
     this.logger.log('🔄 Metrics reset');
   }
 }
