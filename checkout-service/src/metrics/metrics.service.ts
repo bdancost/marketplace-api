@@ -1,7 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import {
   Registry,
@@ -57,7 +53,6 @@ export class MetricsService implements OnModuleInit {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async getMetrics(): Promise<string> {
     return this.registry.metrics();
   }
