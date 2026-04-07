@@ -1,13 +1,10 @@
 import { Module } from '@nestjs/common';
-import { HealthController } from './health.controller';
-import { HealthService } from './health.service';
-import { HealthCheckService } from 'src/common/health/health-check.service';
-import { CircuitBreakerModule } from 'src/common/circuit-breaker/circuit-breaker.module';
+import { TerminusModule } from '@nestjs/terminus';
 import { HttpModule } from '@nestjs/axios';
+import { HealthController } from './health.controller';
 
 @Module({
-  imports: [HttpModule, CircuitBreakerModule],
+  imports: [TerminusModule, HttpModule],
   controllers: [HealthController],
-  providers: [HealthService, HealthCheckService],
 })
 export class HealthModule {}
