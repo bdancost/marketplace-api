@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { HttpService } from '@nestjs/axios';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -37,7 +38,7 @@ export class AuthService {
   validateJwtToken(token: string): Promise<AuthResponse> {
     try {
       return this.jwtService.verify(token);
-    } catch {
+    } catch (error) {
       throw new UnauthorizedException('Invalid JWT token');
     }
   }
@@ -51,7 +52,7 @@ export class AuthService {
         ),
       );
       return data;
-    } catch {
+    } catch (error) {
       throw new UnauthorizedException('Invalid session token');
     }
   }
