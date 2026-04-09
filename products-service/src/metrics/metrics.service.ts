@@ -34,7 +34,7 @@ export class MetricsService implements OnModuleInit {
   onModuleInit() {
     collectDefaultMetrics({
       register: this.registry,
-      prefix: 'users_service_',
+      prefix: 'products_service_',
     });
   }
 
