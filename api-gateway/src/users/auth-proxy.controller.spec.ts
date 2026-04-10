@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthProxyController } from './auth-proxy.controller';
 import { ProxyService } from '../proxy/service/proxy.service';

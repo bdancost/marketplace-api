@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Controller, Get, Param, Headers, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ProxyService } from '../proxy/service/proxy.service';

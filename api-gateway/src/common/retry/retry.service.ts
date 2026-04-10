@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/only-throw-error */
 import { Injectable, Logger } from '@nestjs/common';
 import type { RetryOptions, RetryResult } from './retry.interface';
 
