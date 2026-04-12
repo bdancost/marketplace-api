@@ -1,144 +1,104 @@
-# marketplace-api — README (PT-BR)
+// ...existing code...
 
-Resumo
-Aplicação de exemplo em arquitetura de microserviços para um marketplace. Contém um API Gateway (proxy com circuit breaker, retry, timeout e fallback), serviços como users/checkout/payments/products, integração com RabbitMQ para filas e métricas (Prometheus).
+# marketplace-api —
 
-Estrutura do repositório (exemplo)
+<p align="center">
+  <a href="https://nestjs.com/"><img src="https://nestjs.com/img/logo-small.svg" width="100" alt="NestJS" /></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js->=18-339933?logo=node.js&logoColor=white" alt="Node" /></a>
+  <img src="https://img.shields.io/badge/TypeScript-4.x-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Docker-optional-2496ED?logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/RabbitMQ-required-FF6600?logo=rabbitmq&logoColor=white" alt="RabbitMQ" />
+  <img src="https://img.shields.io/badge/Prometheus-metrics-FE7F2D?logo=prometheus&logoColor=white" alt="Prometheus" />
+  <img src="https://img.shields.io/github/actions/workflow/status/owner/repo/ci.yml?label=CI&logo=github" alt="CI" />
+  <img src="https://img.shields.io/badge/License-MIT-blue" alt="License" />
+</p>
 
-- api-gateway/ — gateway que expõe e encaminha requisições
-  - src/proxy/service/proxy.service.ts
-  - src/common/circuit-breaker/circuit-breaker.service.ts
-- checkout-service/ — lógica de checkout e publicação em fila
-  - src/events/payment-queue/payment-queue.service.ts
-- users-service/, products-service/, payments-service/ — microserviços de domínio
-- README.md — este arquivo
+Descrição
 
-Requisitos
+- Projeto de exemplo em arquitetura de microserviços para um marketplace.
+- Componentes principais: API Gateway (proxy + circuit breaker + retry + timeout + fallback/cache), serviços de domínio (users, products, checkout, payments), integração com RabbitMQ e métricas Prometheus.
 
-- Node.js >= 16 (recomendado >= 18)
-- npm ou yarn
-- RabbitMQ (se usar filas)
-- Docker (opcional)
+Badges e Tecnologias
 
-Instalação (macOS / terminal)
+- 🟢 NestJS — framework core
+- 🟣 TypeScript — tipagem e segurança
+- 🔵 Node.js — runtime
+- 🐳 Docker — execução em container (opcional)
+- 🐰 RabbitMQ — filas/eventos
+- 📈 Prometheus — métricas
+- 🔁 RxJS & Axios — chamadas HTTP reativas e cliente HTTP
+
+Como executar (rápido)
 
 ```bash
+# instalar dependências no nível do monorepo
 cd /Users/danielfernandes/Documents/Estudos/projetos/marketplace-api
 npm install
-# ou por serviço
-cd api-gateway && npm install
-```
 
-Scripts úteis
-
-- npm run start — iniciar
-- npm run start:dev — modo desenvolvimento com watch
-- npm run build — compilar TypeScript
-- npm run test — testes unitários
-- npm run test:e2e — testes end-to-end
-- npm run test:cov — cobertura
-
-Execução local (exemplo)
-
-```bash
-# rodar um serviço (ex.: api-gateway)
+# executar serviço exemplo (api-gateway)
 cd api-gateway
 npm run start:dev
 ```
 
-Configuração / variáveis de ambiente
+Passo a passo de construção (Como foi construído)
 
-- Cada serviço possui sua própria configuração em src/config (ex.: serviceConfig).
-- Exemplos de variáveis:
+1. Planejamento e arquitetura
+   - Definiu-se um API Gateway para concentrar autenticação, roteamento e políticas resilientes.
+   - Serviços pequenos e desacoplados (users, products, checkout, payments).
+
+2. Escolha de tecnologias
+   - NestJS: estrutura modular e integração fácil com interceptors/middlewares.
+   - TypeScript: evitar regressões e melhorar refactor.
+   - @nestjs/axios + RxJS: chamadas HTTP controladas com firstValueFrom.
+   - RabbitMQ para fluxo de eventos (checkout → pagamentos).
+
+3. Implementação do Gateway
+   - ProxyService: camada principal que aplica:
+     - Circuit Breaker (falhas agrupadas por serviço)
+     - Retry com backoff exponencial
+     - Timeout customizável por serviço
+     - Fallbacks (cache ou mensagem de erro)
+   - Tratamento cuidadoso de erros em TypeScript (narrowing de unknown).
+
+4. Resiliência e observabilidade
+   - CircuitBreakerService: estados CLOSED/HALF_OPEN/OPEN, thresholds configuráveis.
+   - MetricsService: expondo métricas Prometheus (contadores/timers).
+   - Logs bem definidos (info/warn/error/debug).
+
+5. Integração de filas
+   - PaymentQueueService: valida e publica mensagens em RabbitMQ.
+   - Mensagens tipadas; adicionar metadata opcional na interface para rastreabilidade.
+
+6. Testes e CI
+   - Unit tests por serviço (Jest).
+   - E2E isolados; para integração usar ambientes docker-compose ou mocks.
+   - Pipeline CI executa build + testes.
+
+Configuração e variáveis
+
+- Cada serviço tem arquivo de config em src/config.
+- Exemplos:
   - PORT=3000
   - NODE_ENV=development
   - RABBITMQ_URI=amqp://guest:guest@localhost:5672
 
-Como o Gateway funciona (visão rápida)
+Boas práticas aplicadas
 
-- ProxyService faz chamadas HTTP para serviços configurados em serviceConfig.
-- Cabeçalhos do usuário são propagados: x-user-id, x-user-email, x-user-role.
-- Usa @nestjs/axios + RxJS (firstValueFrom) para requests.
-- Possui camadas: Circuit Breaker → Retry → Timeout → Execução → Fallback/Cache.
+- Tratar `catch(error: unknown)` com narrowing (axios.isAxiosError / instanceof Error).
+- Usar nullish coalescing quando ler options (ex.: options.resetTimeout ?? default).
+- Tipar mensagens de fila e permitir campos opcionais (metadata?: Record<string, any>).
+- Definir timeouts e thresholds alinhados ao SLA dos serviços downstream.
 
-Boas práticas e observações importantes
+Troubleshooting rápido
 
-- Ajuste timeouts e thresholds conforme os SLAs dos serviços downstream.
-- Teste cenários de erro (timeouts, 5xx) para validar fallback e cache.
-- Use logs e métricas para monitorar comportamento e saúde dos circuit breakers.
-
-Problemas comuns e soluções rápidas
-
-1. Erro TypeScript: "'error' is of type 'unknown'"
-
-- Motivo: TypeScript tipa o catch como unknown. Não acesse propriedades diretamente.
-- Solução: fazer narrowing antes de usar o erro. Exemplo (no ProxyService):
-
-```ts
-import axios from "axios";
-import type { AxiosError } from "axios";
-
-try {
-  // ...
-} catch (error: unknown) {
-  if (axios.isAxiosError(error)) {
-    // tratamento para AxiosError
-    const status = error.response?.status ?? 502;
-    throw new HttpException(error.response?.data ?? error.message, status);
-  }
-  if (error instanceof Error) {
-    throw new InternalServerErrorException(error.message);
-  }
-  throw new InternalServerErrorException("Erro desconhecido");
-}
-```
-
-2. Erro: "options.resetTimeout is possibly null or undefined"
-
-- Motivo: opções podem não conter a propriedade.
-- Solução: usar valores padrão / nullish coalescing. Exemplo (CircuitBreakerService):
-
-```ts
-const resetTimeout = options.resetTimeout ?? this.defaultOptions.resetTimeout!;
-circuit.nextAttemptTime = Date.now() + resetTimeout;
-```
-
-- Outra opção: validar e lançar se faltar configuração.
-
-3. Erro: "Object literal may only specify known properties, and 'metadata' does not exist in type 'PaymentOrderMessage'"
-
-- Motivo: você adicionou `metadata` ao objeto, mas a interface não define essa propriedade.
-- Solução: atualizar a interface PaymentOrderMessage para incluir metadata opcional. Exemplo:
-
-```ts
-// checkout-service/src/events/payment-queue/payment-queue.interface.ts
-export interface PaymentOrderMessage {
-  orderId: string;
-  userId: string;
-  amount: number;
-  items: Array<{ productId: string; quantity: number }>;
-  createdAt?: Date | string;
-  metadata?: Record<string, any>;
-}
-```
-
-Health checks e monitoramento
-
-- Implemente endpoints /health nos serviços.
-- Configure o gateway para checar saúde dos serviços downstream (timeout curto).
-- Exporte métricas Prometheus (counts, latências, mensagens de fila).
-
-Debug e desenvolvimento
-
-- Use logs detalhados em desenvolvimento (logger.debug).
-- Simule falhas (forçar 5xx ou timeout) para validar circuit breaker, retry e fallback.
-- Para e2e tests, prefira mocks ou ambientes controlados dos serviços downstream.
+- "'error' is of type 'unknown'": fazer narrowing antes de usar propriedades.
+- "options.resetTimeout is possibly null or undefined": usar valores padrão via ??.
+- "metadata does not exist in type 'PaymentOrderMessage'": adicionar metadata opcional na interface.
 
 Contribuição
 
-- Abra issues para bugs/feature requests.
-- Faça PRs com descrição clara e testes quando aplicável.
-- Siga padrões TypeScript e trate sempre `unknown`/tipagens opcionais.
+- Fork → branch com feature/bugfix → PR com descrição e testes.
+- Mantenha padrões de lint e tipagem TypeScript.
 
 Licença
 
@@ -146,4 +106,4 @@ Licença
 
 Contato
 
-- Projeto de estudos — adapte conforme necessário para
+- Projeto de estudos — adaptar conforme necessidade.
